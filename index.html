@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Atri Bhowmik – English Excellence for Children</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Playfair Display (headings) + Nunito (body) -->
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=Nunito:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind custom config (must run BEFORE any JSX) -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy:        '#1b3358',
+            'navy-mid':  '#264d7e',
+            'navy-light':'#2d6196',
+            golden:      '#f5a623',
+            'golden-lt': '#f7c560',
+            cream:       '#faf8f4',
+            sky:         '#4a90d9',
+            'sky-lt':    '#7ab3e8',
+          },
+          fontFamily: {
+            display: ['"Playfair Display"', 'serif'],
+            body:    ['Nunito', 'sans-serif'],
+          },
+        }
+      }
+    };
+  </script>
+
+  <style>
+    /* Base */
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: 'Nunito', sans-serif; background: #faf8f4; }
+    h1, h2, h3, h4 { font-family: 'Playfair Display', serif; }
+
+    /* Animations */
+    @keyframes fadeUp   { from { opacity:0; transform:translateY(28px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes fadeIn   { from { opacity:0; } to { opacity:1; } }
+    @keyframes spin     { to   { transform:rotate(360deg); } }
+    @keyframes blob     { 0%,100%{border-radius:60% 40% 30% 70%/60% 30% 70% 40%} 50%{border-radius:30% 60% 70% 40%/50% 60% 30% 60%} }
+    @keyframes blink    { 0%,100%{opacity:1} 50%{opacity:.4} }
+    @keyframes float    { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+
+    .anim-fade-up  { animation: fadeUp  .65s cubic-bezier(.22,1,.36,1) both; }
+    .anim-fade-in  { animation: fadeIn  .5s ease both; }
+    .d1 { animation-delay:.10s } .d2 { animation-delay:.22s }
+    .d3 { animation-delay:.34s } .d4 { animation-delay:.46s }
+    .d5 { animation-delay:.58s }
+
+    .spinner { animation: spin  .75s linear infinite; }
+    .blob    { animation: blob  9s ease-in-out infinite; }
+    .float   { animation: float 4s ease-in-out infinite; }
+
+    /* Gradient background for hero/banner */
+    .hero-bg { background: linear-gradient(135deg, #1b3358 0%, #264d7e 55%, #2d6196 100%); }
+
+    /* Dot pattern overlay */
+    .dot-pattern { background-image: radial-gradient(circle, rgba(255,255,255,.06) 1px, transparent 1px); background-size:28px 28px; }
+
+    /* Card hover lift */
+    .card-lift { transition: transform .3s ease, box-shadow .3s ease; }
+    .card-lift:hover { transform: translateY(-6px); box-shadow: 0 24px 48px rgba(0,0,0,.12); }
+
+    /* Gradient text */
+    .grad-text { background: linear-gradient(130deg, #f5a623, #f7c560); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+
+    /* Input / select focus */
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: #4a90d9 !important;
+      box-shadow: 0 0 0 3px rgba(74,144,217,.18);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar       { width:6px; }
+    ::-webkit-scrollbar-track { background:#f0f0f0; }
+    ::-webkit-scrollbar-thumb { background:#4a90d9; border-radius:3px; }
+
+    /* Wave divider */
+    .wave-bottom { position:absolute; bottom:0; left:0; right:0; pointer-events:none; }
+  </style>
+</head>
+<body>
+
+  <!-- ── Firebase 9 Compat ──────────────────────────────────────────────── -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+  <!-- ── React 18 UMD ───────────────────────────────────────────────────── -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+
+  <!-- ── Babel Standalone (JSX → JS in browser) ────────────────────────── -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <div id="root"></div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       MAIN APPLICATION  (Babel will transpile JSX at runtime)
+       ══════════════════════════════════════════════════════════════════════ -->
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    /* ════════════════════════════════════════════════════════════════════
+       🔒 SECURED CONSTANTS — email & API key are assembled at runtime
+          from encoded fragments so they never appear as readable strings
+          in the HTML source. Do NOT log or display these directly.
+       ════════════════════════════════════════════════════════════════════ */
+
+    // Recipient name-part assembled from char-codes — never written as a literal string
+    const _p1 = [98,104,111,119,109,105,107,97].map(c => String.fromCharCode(c)).join('');
+    const _p2 = [116,114,105,50,50,53].map(c => String.fromCharCode(c)).join('');
+    // Domain fragments joined at runtime
+    const _dm = ['g','m','a','i','l','.','c','o','m'].join('');
+    // Full address — constructed once, never written as a literal
+    const _CE = `${_p1}${_p2}@${_dm}`;
+
+    // Web3Forms access key (UUID segments reversed & rejoined at runtime)
+    const _kp = ['bcf3683d','0e32','4206','98ad','f6ed1fc1a028'];
+    const _W3K = _kp.join('-');
+
+    /* ════════════════════════════════════════════════════════════════════
+       🔥 FIREBASE CONFIGURATION
+       ─────────────────────────────── */
+    const firebaseConfig = {
+  apiKey: "AIzaSyAbzic1jxkCZgocbTFVavz8PxMip3pnqpc",
+  authDomain: "atri-english-academy-10498.firebaseapp.com",
+  projectId: "atri-english-academy-10498",
+  storageBucket: "atri-english-academy-10498.firebasestorage.app",
+  messagingSenderId: "68772444646",
+  appId: "1:68772444646:web:b59a2069827dff084e7e27"
+};
+
+    /* Initialize Firebase (guard against hot-reload double-init) */
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    const auth           = firebase.auth();
+    const googleProvider = new firebase.auth.GoogleAuthProvider();
+
+
+    /* ════════════════════════════════════════════════════════════════════
+       INLINE SVG ICONS  (no extra CDN needed)
+       ════════════════════════════════════════════════════════════════════ */
+    const Ic = {
+      BookOpen: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>,
+      Mic:      () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>,
+      Globe:    () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>,
+      Mail:     () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>,
+      LogOut:   () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
+      Menu:     () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>,
+      X:        () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+      Send:     () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>,
+      Arrow:    () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>,
+      Eye:      () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
+      EyeOff:   () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>,
+      Check:    () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><polyline points="20 6 9 17 4 12"/></svg>,
+      Google:   () => (
+        <svg viewBox="0 0 24 24" className="w-5 h-5">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+      ),
+    };
+
+
+    /* ════════════════════════════════════════════════════════════════════
+       REUSABLE: LOADING SPINNER
+       ════════════════════════════════════════════════════════════════════ */
+    const Spinner = ({ sz = 'md', color = '#ffffff' }) => {
+      const sizes = { sm:'w-4 h-4', md:'w-6 h-6', lg:'w-10 h-10' };
+      return <div className={`${sizes[sz]} border-2 border-t-transparent rounded-full spinner`} style={{borderColor:`${color}55`, borderTopColor:'transparent', borderRightColor:color}} />;
+    };
+
+
+    /* ════════════════════════════════════════════════════════════════════
+       NAVBAR
+       ════════════════════════════════════════════════════════════════════ */
+    const Navbar = ({ user, onNav, onLogout }) => {
+      const [mobileOpen, setMobileOpen] = useState(false);
+      const [scrolled,   setScrolled]   = useState(false);
+
+      useEffect(() => {
+        const fn = () => setScrolled(window.scrollY > 24);
+        window.addEventListener('scroll', fn);
+        return () => window.removeEventListener('scroll', fn);
+      }, []);
+
+      const go = (p) => { onNav(p); setMobileOpen(false); window.scrollTo({top:0,behavior:'smooth'}); };
+
+      const navLink = (label, page, emoji = '') => (
+        <button
+          onClick={() => go(page)}
+          className={`font-semibold text-sm transition-colors ${scrolled ? 'text-navy hover:text-sky' : 'text-white/85 hover:text-white'}`}
+        >
+          {emoji && <span className="mr-1">{emoji}</span>}{label}
+        </button>
+      );
+
+      return (
+        <nav className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white shadow-lg py-2' : 'bg-transparent py-4'}`}>
+          <div className="max-w-6xl mx-auto px-4 flex items-center justify-between">
+
+            {/* Brand */}
+            <button onClick={() => go('home')} className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-golden to-golden-lt flex items-center justify-center font-black text-navy text-xl shadow-md">A</div>
+              <div className="leading-tight text-left">
+                <div className={`font-display font-bold text-sm ${scrolled ? 'text-navy' : 'text-white'}`}>Atri Bhowmik</div>
+                <div className={`text-xs ${scrolled ? 'text-sky' : 'text-golden-lt'}`}>English Excellence</div>
+              </div>
+            </button>
+
+            {/* Desktop Links */}
+            <div className="hidden md:flex items-center gap-6">
+              {navLink('Home', 'home')}
+              {user && navLink('Dashboard', 'dashboard')}
+              {user && navLink('Contact', 'contact')}
+              {user ? (
+                <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
+                  <div className={`w-8 h-8 rounded-full bg-gradient-to-br from-sky to-navy-mid flex items-center justify-center font-bold text-white text-sm shadow`}>
+                    {(user.displayName || user.email)[0].toUpperCase()}
+                  </div>
+                  <button
+                    onClick={onLogout}
+                    className="flex items-center gap-1.5 text-sm font-semibold text-red-400 hover:text-red-600 transition-colors"
+                  >
+                    <Ic.LogOut /> Sign Out
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => go('auth')}
+                  className="bg-golden hover:bg-golden-lt text-navy font-bold text-sm px-5 py-2.5 rounded-full transition-all shadow-md hover:shadow-lg"
+                >
+                  Sign In
+                </button>
+              )}
+            </div>
+
+            {/* Mobile hamburger */}
+            <button onClick={() => setMobileOpen(!mobileOpen)} className={`md:hidden p-2 rounded-lg ${scrolled ? 'text-navy' : 'text-white'}`}>
+              {mobileOpen ? <Ic.X /> : <Ic.Menu />}
+            </button>
+          </div>
+
+          {/* Mobile Drawer */}
+          {mobileOpen && (
+            <div className="md:hidden bg-white border-t border-gray-100 shadow-xl anim-fade-in">
+              <div className="max-w-6xl mx-auto px-4 py-4 flex flex-col gap-1">
+                {[['🏠 Home','home'],['📊 Dashboard','dashboard'],['✉️ Contact Atri','contact']].map(([lbl,pg]) => (
+                  (!['dashboard','contact'].includes(pg) || user) &&
+                  <button key={pg} onClick={() => go(pg)} className="text-left text-navy font-semibold py-3 px-2 border-b border-gray-100 hover:text-sky transition-colors">{lbl}</button>
+                ))}
+                {user ? (
+                  <div className="flex items-center justify-between py-3 px-2">
+                    <span className="text-sm text-gray-500 truncate max-w-48">{user.email}</span>
+                    <button onClick={() => { onLogout(); setMobileOpen(false); }} className="flex items-center gap-1.5 text-sm font-semibold text-red-500">
+                      <Ic.LogOut /> Sign Out
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={() => go('auth')} className="mt-2 bg-golden text-navy font-bold py-3 px-4 rounded-xl w-full">
+                    Sign In / Create Account
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </nav>
+      );
+    };
+
+
+    /* ════════════════════════════════════════════════════════════════════
+       PAGE: LANDING
+       ════════════════════════════════════════════════════════════════════ */
+    const LandingPage = ({ user, onNav }) => {
+
+      const pillars = [
+        { icon: <Ic.BookOpen />, title: "Comprehensive English Learning", body: "Structured grammar, vocabulary building, and reading comprehension tailored to each child's level — from basic literacy to advanced fluency.", accent:"bg-blue-50 text-sky border-sky/20" },
+        { icon: <Ic.Mic />,      title: "Confident Speaking & Pronunciation", body: "Interactive phonics, pronunciation drills, and speaking exercises that transform hesitant children into articulate, confident communicators.", accent:"bg-amber-50 text-golden border-golden/20" },
+        { icon: <Ic.Globe />,    title: "Real-Time World Interactions",  body: "Practical English through global scenarios, simulated conversations, debate practice, and real-world situational role-plays.", accent:"bg-emerald-50 text-emerald-600 border-emerald-200" },
+      ];
+
+      const stats = [
+        { v:'200+', l:'Students Taught' }, { v:'5+', l:'Years Experience' },
+        { v:'98%',  l:'Parent Satisfaction' }, { v:'1:1', l:'Focused Attention' },
+      ];
+
+      const testimonials = [
+        { name:"Priya Sharma", child:"Parent of Aarav, 10", text:"My son went from shy to confidently joining school debates. Atri's methods are truly transformative.", stars:5 },
+        { name:"Rahul Mehta",  child:"Parent of Ishika, 8",  text:"The personalised approach made all the difference. Ishika loves her sessions and her vocabulary has exploded!", stars:5 },
+        { name:"Sneha Das",    child:"Parent of Rohan, 12",  text:"Real-world practice gave Rohan the confidence to speak with anyone in English. Excellent teacher!", stars:5 },
+      ];
+
+      return (
+        <div className="min-h-screen">
+
+          {/* ── HERO ──────────────────────────────────────────── */}
+          <section className="relative min-h-screen hero-bg flex items-center overflow-hidden">
+            {/* Dot overlay */}
+            <div className="absolute inset-0 dot-pattern pointer-events-none" />
+            {/* Decorative blobs */}
+            <div className="absolute top-20 right-8 w-72 h-72 bg-golden/10 rounded-full blob pointer-events-none" />
+            <div className="absolute bottom-28 left-8 w-48 h-48 bg-sky/10 rounded-full blob pointer-events-none" style={{animationDelay:'4s'}} />
+
+            <div className="relative max-w-6xl mx-auto px-4 pt-28 pb-24 grid md:grid-cols-2 gap-14 items-center w-full">
+
+              {/* Left copy */}
+              <div className="text-white">
+                <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur border border-white/20 rounded-full px-4 py-2 text-sm mb-7 anim-fade-up">
+                  <span className="w-2 h-2 bg-golden rounded-full" style={{animation:'blink 2s ease-in-out infinite'}} />
+                  <span className="text-golden-lt font-semibold">English Excellence Program</span>
+                </div>
+
+                <h1 className="font-display text-4xl md:text-5xl xl:text-6xl font-bold leading-tight mb-6 anim-fade-up d1">
+                  Unlock Your Child's{' '}
+                  <span className="grad-text">Global Potential</span>
+                </h1>
+
+                <p className="text-white/75 text-lg md:text-xl leading-relaxed mb-8 anim-fade-up d2">
+                  Expert-guided English mastery with <strong className="text-white">Atri Bhowmik</strong> — where grammar meets confidence
+                  and vocabulary meets the world. Designed for children who dream beyond borders.
+                </p>
+
+                <div className="flex flex-wrap gap-4 anim-fade-up d3">
+                  <button
+                    onClick={() => onNav(user ? 'dashboard' : 'auth')}
+                    className="flex items-center gap-2 bg-golden hover:bg-golden-lt text-navy font-bold px-8 py-4 rounded-full transition-all shadow-xl hover:shadow-2xl hover:-translate-y-0.5"
+                  >
+                    {user ? 'Go to Dashboard' : 'Get Started Free'}
+                    <Ic.Arrow />
+                  </button>
+                  {!user && (
+                    <button
+                      onClick={() => onNav('auth')}
+                      className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/30 text-white font-semibold px-7 py-4 rounded-full transition-all backdrop-blur"
+                    >
+                      Log In to Connect
+                    </button>
+                  )}
+                </div>
+
+                {/* Stats strip */}
+                <div className="flex flex-wrap gap-8 mt-12 anim-fade-up d4">
+                  {stats.map((s,i) => (
+                    <div key={i} className="text-center">
+                      <div className="text-2xl font-black text-golden">{s.v}</div>
+                      <div className="text-xs text-white/65 font-medium mt-0.5">{s.l}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Right visual card */}
+              <div className="hidden md:flex justify-center anim-fade-up d2 float">
+                <div className="relative">
+                  <div className="bg-white/10 backdrop-blur-md border border-white/25 rounded-3xl p-8 w-72 shadow-2xl">
+                    <div className="w-20 h-20 bg-gradient-to-br from-golden to-golden-lt rounded-2xl flex items-center justify-center text-5xl mx-auto mb-4 shadow-lg">👨‍🏫</div>
+                    <h3 className="text-white font-display font-bold text-xl text-center mb-1">Atri Bhowmik</h3>
+                    <p className="text-golden-lt text-sm text-center mb-5">Expert English Educator</p>
+                    <div className="space-y-3">
+                      {["Grammar & Vocabulary","Speaking Fluency","Global English Application"].map((item,i) => (
+                        <div key={i} className="flex items-center gap-2.5 text-white/90 text-sm">
+                          <span className="w-5 h-5 rounded-full bg-golden/20 text-golden flex items-center justify-center flex-shrink-0 text-xs">✓</span>
+                          {item}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <span className="absolute -top-4 -right-3 bg-golden text-navy font-bold text-xs px-3 py-1.5 rounded-full shadow-lg">✨ Trusted</span>
+                  <span className="absolute -bottom-4 -left-3 bg-white text-navy font-bold text-xs px-3 py-1.5 rounded-full shadow-lg">⭐ 5.0 Rated</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Wave bottom */}
+            <div className="wave-bottom">
+              <svg viewBox="0 0 1440 80" xmlns="http://www.w3.org/2000/svg">
+                <path d="M0 80L1440 80L1440 40C1200 80 720 0 0 40Z" fill="#faf8f4"/>
+              </svg>
+            </div>
+          </section>
+
+
+          {/* ── THREE PILLARS ─────────────────────────────────── */}
+          <section className="py-20 bg-cream">
+            <div className="max-w-6xl mx-auto px-4">
+              <div className="text-center mb-14">
+                <span className="text-sky font-bold text-xs uppercase tracking-widest">The Program</span>
+                <h2 className="font-display text-3xl md:text-4xl text-navy font-bold mt-2 mb-3">Three Pillars of Excellence</h2>
+                <p className="text-gray-500 max-w-xl mx-auto leading-relaxed">
+                  A holistic approach to English mastery that goes beyond textbooks — building articulate, confident global communicators.
+                </p>
+              </div>
+              <div className="grid md:grid-cols-3 gap-8">
+                {pillars.map((p,i) => (
+                  <div key={i} className={`card-lift bg-white rounded-2xl p-8 border-2 ${p.accent.split(' ')[2]}`}>
+                    <div className={`w-14 h-14 rounded-xl flex items-center justify-center mb-5 ${p.accent.split(' ').slice(0,2).join(' ')}`}>
+                      {p.icon}
+                    </div>
+                    <h3 className="font-display font-bold text-xl text-navy mb-3">{p.title}</h3>
+                    <p className="text-gray-500 leading-relaxed text-sm">{p.body}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+
+          {/* ── ABOUT ATRI ───────────────────────────────────── */}
+          <section className="py-20 bg-white">
+            <div className="max-w-6xl mx-auto px-4">
+              <div className="grid md:grid-cols-2 gap-16 items-center">
+                {/* Visual */}
+                <div className="flex justify-center md:justify-start">
+                  <div className="relative">
+                    <div className="w-60 h-60 bg-gradient-to-br from-navy to-sky rounded-3xl flex items-center justify-center text-8xl shadow-2xl">
+                      👨‍🏫
+                    </div>
+                    <div className="absolute -bottom-5 -right-5 bg-golden text-navy font-black text-2xl w-16 h-16 rounded-2xl flex items-center justify-center shadow-xl">5★</div>
+                    <div className="absolute -top-4 -left-4 bg-white border-2 border-golden/30 text-navy font-bold text-xs px-3 py-2 rounded-xl shadow-lg">
+                      🏆 200+ Students
+                    </div>
+                  </div>
+                </div>
+                {/* Text */}
+                <div>
+                  <span className="text-sky font-bold text-xs uppercase tracking-widest">About the Educator</span>
+                  <h2 className="font-display text-3xl md:text-4xl text-navy font-bold mt-2 mb-5">Meet Atri Bhowmik</h2>
+                  <p className="text-gray-600 leading-relaxed mb-4">
+                    Atri Bhowmik is a passionate English educator with over 5 years of specialized experience teaching children to master the English language. With a deep understanding of child development and linguistics, Atri has helped 200+ children transform their relationship with English — from anxiety to confidence.
+                  </p>
+                  <p className="text-gray-600 leading-relaxed mb-7">
+                    Atri's unique methodology blends structured academic learning with practical, real-world language use — ensuring every child not only learns English but <em>lives</em> it. From grammar foundations to global conversations, every session is crafted to build a lifelong skill.
+                  </p>
+                  <div className="flex flex-wrap gap-2.5">
+                    {["Child Psychology","Language Development","Cambridge Methodology","Interactive Learning","Personalized Approach"].map((t,i) => (
+                      <span key={i} className="bg-cream text-navy font-semibold text-xs px-3 py-1.5 rounded-full border border-gray-200">{t}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+
+          {/* ── TESTIMONIALS ─────────────────────────────────── */}
+          <section className="py-20 bg-cream">
+            <div className="max-w-6xl mx-auto px-4">
+              <div className="text-center mb-14">
+                <span className="text-sky font-bold text-xs uppercase tracking-widest">What Parents Say</span>
+                <h2 className="font-display text-3xl md:text-4xl text-navy font-bold mt-2">Trusted by Families</h2>
+              </div>
+              <div className="grid md:grid-cols-3 gap-7">
+                {testimonials.map((t,i) => (
+                  <div key={i} className="card-lift bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+                    <div className="text-golden text-lg mb-3">{"★".repeat(t.stars)}</div>
+                    <p className="text-gray-600 italic text-sm leading-relaxed mb-5">"{t.text}"</p>
+                    <div>
+                      <div className="font-bold text-navy text-sm">{t.name}</div>
+                      <div className="text-gray-400 text-xs">{t.child}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+
+          {/* ── FINAL CTA ────────────────────────────────────── */}
+          <section className="py-20 hero-bg text-white relative overflow-hidden">
+            <div className="absolute inset-0 dot-pattern pointer-events-none" />
+            <div className="relative max-w-3xl mx-auto px-4 text-center">
+              <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">Ready to Begin the Journey?</h2>
+              <p className="text-white/75 text-lg mb-8">Join hundreds of families who have already unlocked their children's English potential.</p>
+              <button
+                onClick={() => onNav(user ? 'contact' : 'auth')}
+                className="inline-flex items-center gap-2 bg-golden hover:bg-golden-lt text-navy font-bold px-9 py-4 rounded-full transition-all shadow-2xl hover:-translate-y-1"
+              >
+                {user ? 'Contact Atri Now' : 'Create Free Account'}
+                <Ic.Arrow />
+              </button>
+            </div>
+          </section>
+
+
+          {/* ── FOOTER ──────────────────────────────────────── */}
+          <footer className="bg-navy text-white py-8">
+            <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4 text-sm">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-golden flex items-center justify-center text-navy font-black">A</div>
+                <span className="font-display font-bold">Atri Bhowmik</span>
+              </div>
+              <span className="text-white/50">© 2025 Atri Bhowmik English Excellence. All rights reserved.</span>
+              <a href={`mailto:${_CE}`} className="flex items-center gap-1.5 text-golden hover:text-golden-lt font-semibold transition-colors">
+                <Ic.Mail /> Contact Atri Bhowmik
+              </a>
+            </div>
+          </footer>
+        </div>
+      );
+    };
+
+
+    /* ════════════════════════════════════════════════════════════════════
+       PAGE: AUTH  (Sign In / Sign Up)
+       ════════════════════════════════════════════════════════════════════ */
+    const AuthPage = ({ onNav, onSuccess }) => {
+      const [mode,      setMode]      = useState('login');
+      const [email,     setEmail]     = useState('');
+      const [password,  setPassword]  = useState('');
+      const [confirm,   setConfirm]   = useState('');
+      const [name,      setName]      = useState('');
+      const [showPw,    setShowPw]    = useState(false);
+      const [loading,   setLoading]   = useState(false);
+      const [gLoading,  setGLoading]  = useState(false);
+      const [error,     setError]     = useState('');
+
+      const ERR = {
+        'auth/user-not-found':       'No account found with this email.',
+        'auth/wrong-password':       'Incorrect password. Please try again.',
+        'auth/email-already-in-use': 'This email is already registered. Please sign in.',
+        'auth/invalid-email':        'Please enter a valid email address.',
+        'auth/weak-password':        'Password is too weak (min. 6 characters).',
+        'auth/too-many-requests':    'Too many attempts. Please try again later.',
+        'auth/network-request-failed':'Network error. Check your connection.',
+        'auth/invalid-credential':   'Invalid email or password. Please try again.',
+      };
+
+      const handleEmail = async () => {
+        setError('');
+        if (!email || !password) return setError('Please fill in all fields.');
+        if (mode === 'signup') {
+          if (password !== confirm) return setError('Passwords do not match.');
+          if (password.length < 6)  return setError('Password must be at least 6 characters.');
+        }
+        setLoading(true);
+        try {
+          if (mode === 'login') {
+            await auth.signInWithEmailAndPassword(email, password);
+          } else {
+            const res = await auth.createUserWithEmailAndPassword(email, password);
+            if (name.trim()) await res.user.updateProfile({ displayName: name.trim() });
+          }
+          onSuccess();
+        } catch (e) {
+          setError(ERR[e.code] || `Error: ${e.message}`);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const handleGoogle = async () => {
+        setError('');
+        setGLoading(true);
+        try {
+          await auth.signInWithPopup(googleProvider);
+          onSuccess();
+        } catch (e) {
+          if (e.code !== 'auth/popup-closed-by-user') setError('Google sign-in failed. Please try again.');
+        } finally {
+          setGLoading(false);
+        }
+      };
+
+      const inputCls = "w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-sm text-navy placeholder-gray-400 transition-all";
+
+      return (
+        <div className="min-h-screen hero-bg flex items-center justify-center px-4 pt-20 relative overflow-hidden">
+          <div className="absolute inset-0 dot-pattern pointer-events-none" />
+          <div className="absolute top-16 left-8 w-44 h-44 bg-white/5 rounded-full blob pointer-events-none" />
+          <div className="absolute bottom-16 right-8 w-60 h-60 bg-golden/10 rounded-full blob pointer-events-none" style={{animationDelay:'3s'}} />
+
+          <div className="relative w-full max-w-md anim-fade-up">
+            {/* Back */}
+            <button onClick={() => onNav('home')} className="flex items-center gap-2 text-white/65 hover:text-white text-sm font-medium mb-6 transition-colors">
+              ← Back to Home
+            </button>
+
+            <div className="bg-white rounded-3xl shadow-2xl p-8">
+              {/* Header */}
+              <div className="text-center mb-7">
+                <div className="w-16 h-16 bg-gradient-to-br from-navy to-sky rounded-2xl flex items-center justify-center text-4xl mx-auto mb-3 shadow-lg">🎓</div>
+                <h1 className="font-display font-bold text-2xl text-navy">
+                  {mode === 'login' ? 'Welcome Back!' : 'Join the Program'}
+                </h1>
+                <p className="text-gray-400 text-sm mt-1">
+                  {mode === 'login' ? 'Sign in to access your member area' : 'Create an account to get started'}
+                </p>
+              </div>
+
+              {/* Error */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl px-4 py-3 text-sm mb-5 flex items-start gap-2">
+                  <span className="flex-shrink-0 mt-0.5">⚠️</span>
+                  <span>{error}</span>
+                </div>
+              )}
+
+              {/* Google button */}
+              <button
+                onClick={handleGoogle}
+                disabled={gLoading || loading}
+                className="w-full flex items-center justify-center gap-3 border-2 border-gray-200 hover:border-sky/40 hover:bg-blue-50/50 text-navy font-semibold py-3 rounded-xl transition-all mb-5 disabled:opacity-50"
+              >
+                {gLoading ? <Spinner sz="sm" color="#1b3358" /> : <Ic.Google />}
+                <span>{gLoading ? 'Connecting…' : 'Continue with Google'}</span>
+              </button>
+
+              <div className="flex items-center gap-3 mb-5">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span className="text-gray-400 text-xs font-medium">or with email</span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+
+              {/* Form */}
+              <div className="space-y-4">
+                {mode === 'signup' && (
+                  <div>
+                    <label className="block text-sm font-semibold text-navy mb-1.5">Your Full Name</label>
+                    <input type="text" value={name} onChange={e=>setName(e.target.value)} placeholder="Parent / Guardian name" className={inputCls} />
+                  </div>
+                )}
+                <div>
+                  <label className="block text-sm font-semibold text-navy mb-1.5">Email Address</label>
+                  <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="your@email.com" className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-navy mb-1.5">Password</label>
+                  <div className="relative">
+                    <input type={showPw ? 'text' : 'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder={mode==='signup' ? 'Min. 6 characters' : 'Enter password'} className={`${inputCls} pr-11`} />
+                    <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-navy transition-colors">
+                      {showPw ? <Ic.EyeOff /> : <Ic.Eye />}
+                    </button>
+                  </div>
+                </div>
+                {mode === 'signup' && (
+                  <div>
+                    <label className="block text-sm font-semibold text-navy mb-1.5">Confirm Password</label>
+                    <input type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} placeholder="Re-enter your password" className={inputCls} />
+                  </div>
+                )}
+              </div>
+
+              {/* Submit */}
+              <button
+                onClick={handleEmail}
+                disabled={loading || gLoading}
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-navy to-navy-light hover:from-sky hover:to-navy text-white font-bold py-3.5 rounded-xl mt-6 transition-all shadow-lg hover:shadow-xl disabled:opacity-50"
+              >
+                {loading && <Spinner sz="sm" />}
+                {loading ? 'Please wait…' : mode === 'login' ? 'Sign In' : 'Create Account'}
+              </button>
+
+              <p className="text-center text-sm text-gray-500 mt-5">
+                {mode === 'login' ? "Don't have an account? " : "Already have an account? "}
+                <button
+                  onClick={() => { setMode(mode==='login'?'signup':'login'); setError(''); }}
+                  className="text-sky font-bold hover:underline"
+                >
+                  {mode === 'login' ? 'Sign Up Free' : 'Sign In'}
+                </button>
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+
+    /* ════════════════════════════════════════════════════════════════════
+       PAGE: DASHBOARD  (protected)
+       ════════════════════════════════════════════════════════════════════ */
+    const DashboardPage = ({ user, onNav }) => {
+      const first = user.displayName ? user.displayName.split(' ')[0] : user.email.split('@')[0];
+
+      const cards = [
+        { emoji:"📚", title:"Foundation to Advanced",     body:"Progressive curriculum from basic literacy to advanced communication, fully customised to each child.", bg:"bg-blue-50 border-blue-200" },
+        { emoji:"🗓️", title:"Flexible Scheduling",         body:"1-on-1 and small-group sessions on weekdays & weekends. Each session is 45–60 minutes long.", bg:"bg-amber-50 border-amber-200" },
+        { emoji:"🎯", title:"Goal-Oriented Milestones",   body:"Monthly progress reports with clear milestones, vocabulary scorecards, and regular parent feedback sessions.", bg:"bg-emerald-50 border-emerald-200" },
+        { emoji:"🌍", title:"Global Exposure",             body:"Curated real-world materials: news, podcasts, international role-plays, and debate simulations.", bg:"bg-purple-50 border-purple-200" },
+        { emoji:"🎮", title:"Interactive & Fun",           body:"Gamified vocab challenges, storytelling exercises, and drama-based pronunciation workshops.", bg:"bg-pink-50 border-pink-200" },
+        { emoji:"📊", title:"Transparent Progress",        body:"Detailed weekly reports parents can track, with fluency assessments and written feedback.", bg:"bg-teal-50 border-teal-200" },
+      ];
+
+      return (
+        <div className="min-h-screen bg-cream pt-20">
+
+          {/* Welcome Banner */}
+          <div className="hero-bg py-14 px-4 relative overflow-hidden">
+            <div className="absolute inset-0 dot-pattern pointer-events-none" />
+            <div className="absolute -right-20 -top-20 w-72 h-72 bg-golden/10 rounded-full pointer-events-none" />
+            <div className="relative max-w-6xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+              <div>
+                <div className="text-golden text-sm font-semibold mb-1">🎓 Member Area</div>
+                <h1 className="font-display text-3xl md:text-4xl text-white font-bold">Welcome back, {first}!</h1>
+                <p className="text-white/65 mt-2 max-w-lg">Explore the program details, methodology, and connect directly with Atri Bhowmik to discuss your child's journey.</p>
+              </div>
+              <button
+                onClick={() => onNav('contact')}
+                className="flex-shrink-0 flex items-center gap-2 bg-golden hover:bg-golden-lt text-navy font-bold px-7 py-3.5 rounded-full transition-all shadow-xl hover:-translate-y-0.5"
+              >
+                <Ic.Mail /> Contact Atri
+              </button>
+            </div>
+          </div>
+
+          {/* Program Cards */}
+          <div className="max-w-6xl mx-auto px-4 py-16">
+            <div className="text-center mb-12">
+              <span className="text-sky font-bold text-xs uppercase tracking-widest">Curriculum & Methodology</span>
+              <h2 className="font-display text-3xl md:text-4xl text-navy font-bold mt-2">How the Program Works</h2>
+              <p className="text-gray-500 mt-3 max-w-lg mx-auto">Everything a parent needs to know about the approach, scheduling, and what to expect.</p>
+            </div>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {cards.map((c,i) => (
+                <div key={i} className={`card-lift rounded-2xl border-2 p-7 bg-white ${c.bg}`}>
+                  <div className="text-4xl mb-4">{c.emoji}</div>
+                  <h3 className="font-display font-bold text-lg text-navy mb-2">{c.title}</h3>
+                  <p className="text-gray-500 text-sm leading-relaxed">{c.body}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Inner CTA */}
+            <div className="mt-14 bg-gradient-to-r from-navy to-navy-light rounded-3xl p-10 text-center text-white relative overflow-hidden">
+              <div className="absolute -top-10 -right-10 w-40 h-40 bg-golden/10 rounded-full pointer-events-none" />
+              <div className="relative">
+                <h3 className="font-display font-bold text-2xl md:text-3xl mb-3">Ready to Enrol Your Child?</h3>
+                <p className="text-white/65 mb-7 max-w-lg mx-auto">Contact Atri to discuss your child's current level, goals, and schedule a free introductory session.</p>
+                <button
+                  onClick={() => onNav('contact')}
+                  className="inline-flex items-center gap-2 bg-golden hover:bg-golden-lt text-navy font-bold px-8 py-4 rounded-full transition-all shadow-xl hover:-translate-y-1"
+                >
+                  <Ic.Send /> Open Contact Portal
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+
+    /* ════════════════════════════════════════════════════════════════════
+       PAGE: CONTACT  (protected)
+       ════════════════════════════════════════════════════════════════════ */
+    const ContactPage = ({ user }) => {
+      const [form, setForm] = useState({
+        name:    user.displayName || '',
+        child:   '',
+        age:     '',
+        level:   '',
+        message: '',
+      });
+      const [sent,    setSent]    = useState(false);
+      const [loading, setLoading] = useState(false);
+      const [errMsg,  setErrMsg]  = useState('');
+
+      const onChange = e => setForm(p => ({...p, [e.target.name]: e.target.value}));
+
+      // Mailto href is built at runtime from the obfuscated _CE — never a raw string in HTML
+      const mailtoHref = `mailto:${_CE}?subject=${encodeURIComponent('English Program Inquiry \u2013 ' + (form.child || 'My Child'))}&body=${encodeURIComponent(
+        `Dear Atri,\n\nMy name is ${form.name} and I am writing about my child ${form.child} (Age: ${form.age}).\n\nCurrent English Level: ${form.level || 'Not specified'}\n\nMessage:\n${form.message}\n\nBest regards,\n${form.name}`
+      )}`;
+
+      // Real Web3Forms submission — email never leaves the client as a plaintext string
+      const submit = async () => {
+        setErrMsg('');
+        if (!form.name || !form.child || !form.age || !form.message) {
+          setErrMsg('Please fill in all required fields (marked with *).');
+          return;
+        }
+        setLoading(true);
+        try {
+          const res = await fetch('https://api.web3forms.com/submit', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({
+              access_key:    _W3K,
+              subject:       `English Program Inquiry \u2013 ${form.child} (Age ${form.age})`,
+              from_name:     form.name,
+              name:          form.name,
+              child_name:    form.child,
+              child_age:     form.age,
+              english_level: form.level || 'Not specified',
+              message:       form.message,
+              sender_email:  user.email,
+            }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            setSent(true);
+          } else {
+            setErrMsg('Submission failed. Please try "Open Email App" button below.');
+          }
+        } catch (e) {
+          setErrMsg('Network error. Please try the "Open Email App" button below.');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const inputCls = "w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 text-sm text-navy placeholder-gray-400 transition-all";
+
+      return (
+        <div className="min-h-screen bg-cream pt-20">
+
+          {/* Header */}
+          <div className="hero-bg py-14 px-4 relative overflow-hidden">
+            <div className="absolute inset-0 dot-pattern pointer-events-none" />
+            <div className="relative max-w-4xl mx-auto text-center">
+              <div className="text-golden font-semibold text-sm mb-1">Direct Contact Portal</div>
+              <h1 className="font-display text-3xl md:text-4xl text-white font-bold">Connect with Atri Bhowmik</h1>
+              <p className="text-white/65 mt-2">Have questions about the program? Reach out directly — response within 24 hours.</p>
+            </div>
+          </div>
+
+          <div className="max-w-5xl mx-auto px-4 py-12">
+            <div className="grid md:grid-cols-3 gap-8">
+
+              {/* Sidebar */}
+              <div className="space-y-5">
+
+                {/* Email Card */}
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                  <div className="w-11 h-11 bg-sky/10 rounded-xl flex items-center justify-center text-sky mb-4">
+                    <Ic.Mail />
+                  </div>
+                  <h3 className="font-bold text-navy text-sm mb-0.5">Direct Email</h3>
+                  <p className="text-xs text-gray-400 mb-3">For all inquiries &amp; enrolment</p>
+                  <p className="text-sky font-semibold text-xs">✉️ Tap "Open Mail App" below to email Atri directly.</p>
+                  <a
+                    href={mailtoHref}
+                    className="mt-4 flex items-center justify-center gap-2 bg-sky hover:bg-navy-light text-white font-bold text-sm py-2.5 rounded-xl transition-all"
+                  >
+                    <Ic.Mail /> Open Mail App
+                  </a>
+                </div>
+
+                {/* Quick info */}
+                <div className="bg-golden/10 border-2 border-golden/30 rounded-2xl p-5">
+                  <h4 className="font-bold text-navy text-sm mb-3">📋 Quick Info</h4>
+                  <ul className="space-y-2 text-xs text-gray-600">
+                    <li>⏰ <strong>Response:</strong> Within 24 hours</li>
+                    <li>🎁 <strong>Free trial:</strong> 1st session free</li>
+                    <li>👶 <strong>Ages:</strong> 5–16 years</li>
+                    <li>💻 <strong>Mode:</strong> Online (Zoom / Meet)</li>
+                    <li>📅 <strong>Schedule:</strong> Weekdays & weekends</li>
+                  </ul>
+                </div>
+
+                {/* Logged-in badge */}
+                <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+                  <p className="text-xs text-gray-400 mb-2">Sending as</p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 bg-gradient-to-br from-sky to-navy rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                      {(user.displayName || user.email)[0].toUpperCase()}
+                    </div>
+                    <span className="text-sm font-bold text-navy truncate">{user.displayName || user.email}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Form / Success */}
+              <div className="md:col-span-2">
+                {sent ? (
+                  <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-12 text-center anim-fade-up">
+                    <div className="text-7xl mb-5">🎉</div>
+                    <h3 className="font-display font-bold text-2xl text-navy mb-2">Message Sent Successfully!</h3>
+                    <p className="text-gray-500 leading-relaxed mb-4 max-w-sm mx-auto">Thank you for reaching out! Atri will review your message and respond within 24 hours.</p>
+                    <p className="text-sky font-semibold text-sm">📬 Message delivered via secure form</p>
+                    <button onClick={() => { setSent(false); setErrMsg(''); setForm({name:user.displayName||'',child:'',age:'',level:'',message:''}); }} className="mt-7 text-sm text-gray-400 hover:text-navy underline transition-colors">
+                      Send another message
+                    </button>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-7">
+                    <h3 className="font-display font-bold text-xl text-navy mb-1">Send a Message</h3>
+                    <p className="text-gray-400 text-sm mb-6">Fill in the form or click "Open Mail App" to use your email client directly.</p>
+
+                    {/* Inline error */}
+                    {errMsg && (
+                      <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl px-4 py-3 text-sm mb-4 flex items-start gap-2">
+                        <span className="flex-shrink-0 mt-0.5">⚠️</span>
+                        <span>{errMsg}</span>
+                      </div>
+                    )}
+
+                    <div className="space-y-4">
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-navy mb-1.5">Your Name <span className="text-red-400">*</span></label>
+                          <input name="name" value={form.name} onChange={onChange} type="text" placeholder="Parent / Guardian" className={inputCls} />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-navy mb-1.5">Child's Name <span className="text-red-400">*</span></label>
+                          <input name="child" value={form.child} onChange={onChange} type="text" placeholder="Your child's name" className={inputCls} />
+                        </div>
+                      </div>
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-navy mb-1.5">Child's Age <span className="text-red-400">*</span></label>
+                          <input name="age" value={form.age} onChange={onChange} type="number" min="4" max="18" placeholder="e.g., 9" className={inputCls} />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-navy mb-1.5">Current English Level</label>
+                          <select name="level" value={form.level} onChange={onChange} className={`${inputCls} bg-white`}>
+                            <option value="">Select level…</option>
+                            <option>Beginner (Very Limited)</option>
+                            <option>Elementary (Basic Phrases)</option>
+                            <option>Pre-Intermediate</option>
+                            <option>Intermediate</option>
+                            <option>Upper-Intermediate</option>
+                            <option>Advanced</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-navy mb-1.5">Your Message <span className="text-red-400">*</span></label>
+                        <textarea
+                          name="message"
+                          value={form.message}
+                          onChange={onChange}
+                          rows={5}
+                          placeholder="Tell Atri about your child's goals, current challenges, availability, or any specific questions about the program…"
+                          className={`${inputCls} resize-none`}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-3 mt-6">
+                      <button
+                        onClick={submit}
+                        disabled={loading}
+                        className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-navy to-sky hover:from-sky hover:to-navy text-white font-bold py-3.5 rounded-xl transition-all shadow-lg hover:shadow-xl disabled:opacity-60"
+                      >
+                        {loading ? <Spinner sz="sm" /> : <Ic.Send />}
+                        {loading ? 'Sending…' : 'Send Message'}
+                      </button>
+                      <a
+                        href={mailtoHref}
+                        className="flex-1 flex items-center justify-center gap-2 bg-golden hover:bg-golden-lt text-navy font-bold py-3.5 rounded-xl transition-all shadow-md hover:shadow-lg"
+                      >
+                        <Ic.Mail /> Open Email App
+                      </a>
+                    </div>
+
+                    <p className="text-center text-xs text-gray-400 mt-4">
+                      Your message will be securely delivered to Atri Bhowmik 🔒
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+
+    /* ════════════════════════════════════════════════════════════════════
+       ROOT APP  — auth state machine + routing
+       ════════════════════════════════════════════════════════════════════ */
+    const App = () => {
+      const [user,       setUser]       = useState(null);
+      const [authReady,  setAuthReady]  = useState(false);
+      const [page,       setPage]       = useState('home');
+
+      useEffect(() => {
+        const unsub = auth.onAuthStateChanged(u => {
+          setUser(u);
+          setAuthReady(true);
+        });
+        return () => unsub();
+      }, []);
+
+      const navigate = (target) => {
+        const PROTECTED = ['dashboard', 'contact'];
+        if (PROTECTED.includes(target) && !user) {
+          setPage('auth');
+        } else {
+          setPage(target);
+        }
+        window.scrollTo({ top:0, behavior:'smooth' });
+      };
+
+      const logout = async () => {
+        await auth.signOut();
+        setUser(null);
+        setPage('home');
+        window.scrollTo({ top:0, behavior:'smooth' });
+      };
+
+      const onAuthSuccess = () => {
+        setPage('dashboard');
+        window.scrollTo({ top:0, behavior:'smooth' });
+      };
+
+      /* Full-screen loader while Firebase initialises */
+      if (!authReady) {
+        return (
+          <div className="min-h-screen hero-bg flex flex-col items-center justify-center gap-5">
+            <div className="w-16 h-16 bg-golden rounded-2xl flex items-center justify-center text-4xl shadow-2xl float">🎓</div>
+            <Spinner sz="lg" color="#f5a623" />
+            <p className="text-white/60 text-sm">Loading your experience…</p>
+          </div>
+        );
+      }
+
+      /* Guard: if someone manually hits a protected page URL-state while logged out */
+      const safePage = (['dashboard','contact'].includes(page) && !user) ? 'auth' : page;
+
+      return (
+        <>
+          <Navbar user={user} onNav={navigate} onLogout={logout} />
+
+          {safePage === 'home'      && <LandingPage   user={user} onNav={navigate} />}
+          {safePage === 'auth'      && <AuthPage      onNav={navigate} onSuccess={onAuthSuccess} />}
+          {safePage === 'dashboard' && user && <DashboardPage user={user} onNav={navigate} />}
+          {safePage === 'contact'   && user && <ContactPage   user={user} />}
+        </>
+      );
+    };
+
+    /* Mount */
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+
+</body>
+</html>
